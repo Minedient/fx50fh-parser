@@ -1,0 +1,321 @@
+#include <Arduino.h>
+#include <MeMegaPi.h>
+#include "MeEEPROM.h"
+#include <Wire.h>
+#include <SoftwareSerial.h>
+
+MeLineFollower lineLeft(PORT_8);
+MeLineFollower lineRight(PORT_6);
+uint8_t leftVal, rightVal;
+uint8_t lineFF = 0;
+int moveSpeed = 200;
+
+MeEncoderOnBoard Encoder_1(SLOT1);
+MeEncoderOnBoard Encoder_2(SLOT2);
+
+void getSensorVal() {
+  leftVal = lineLeft.readSensors();
+  rightVal = lineRight.readSensors();
+}
+
+void printSensorVal() {
+  Serial.print(leftVal);
+  Serial.print(" ");
+  Serial.println(rightVal);
+}
+
+void forward() {
+  Encoder_1.setMotorPwm(moveSpeed);
+  Encoder_2.setMotorPwm(-moveSpeed);
+}
+
+void backward() {
+  Encoder_1.setMotorPwm(-moveSpeed);
+  Encoder_2.setMotorPwm(moveSpeed);
+}
+
+void turnLeft() {
+  Encoder_1.setMotorPwm(moveSpeed);
+  Encoder_2.setMotorPwm(-moveSpeed / 2);
+}
+
+void turnLeftF() {
+  Encoder_1.setMotorPwm(moveSpeed);
+  Encoder_2.setMotorPwm(-moveSpeed / 4);
+}
+
+void turnLeftB(){
+  Encoder_1.setMotorPwm(moveSpeed);
+  Encoder_2.setMotorPwm(moveSpeed);
+}
+
+void turnRight() {
+  Encoder_1.setMotorPwm(moveSpeed / 2);
+  Encoder_2.setMotorPwm(-moveSpeed);
+}
+
+void turnRightF() {
+  Encoder_1.setMotorPwm(moveSpeed / 4);
+  Encoder_2.setMotorPwm(-moveSpeed);
+}
+
+void turnRightB(){
+  Encoder_1.setMotorPwm(-moveSpeed);
+  Encoder_2.setMotorPwm(-moveSpeed);
+}
+
+void ultimateP() {
+  if (lineFF == 10)
+    backward();
+  if (lineFF < 10)
+    turnLeftB();
+  if (lineFF > 10)
+    turnRightB();
+}
+
+void leftValZero() {
+  switch (rightVal) {
+    case 0:
+      //Crossroad
+      forward();
+      lineFF = 10;
+      break;
+    case 2:
+      break;
+    case 1:
+      forward();
+      if (lineFF > 1)
+        lineFF--;
+      break;
+    case 3:
+      turnLeft();
+      break;
+  }
+}
+
+void leftValOne() {
+  switch (rightVal) {
+    case 0:
+      break;
+    case 2:
+      break;
+    case 1:
+      break;
+    case 3:
+      turnLeftF();
+      break;
+  }
+}
+
+void leftValTwo() {
+  switch (rightVal) {
+    case 0:
+      forward();
+      if (lineFF < 20)
+        lineFF++;
+      break;
+    case 2:
+      break;
+    case 1:
+      forward();
+      lineFF = 10;
+      break;
+    case 3:
+      break;
+  }
+}
+
+void leftValThree() {
+  switch (rightVal) {
+    case 0:
+      turnRight();
+      break;
+    case 2:
+      turnRightF();
+      break;
+    case 1:
+      break;
+    case 3:
+      ultimateP();
+      break;
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+
+}
+
+
+void loop() {
+  getSensorVal();
+  printSensorVal();
+  //Reset speed if too quick
+  if (moveSpeed > 230)
+    moveSpeed = 230;
+
+  //Logic
+  switch (leftVal) {
+    case 0: //LeftBothIn
+      leftValZero();
+      break;
+    case 1: //LeftLeftIn
+      leftValOne();
+      break;
+    case 2: //LeftRightIn
+      leftValTwo();
+      break;
+    case 3: //LeftBothOut
+      leftValThree();
+      break;
+  }
+
+
+
+
+
+}
+
+
+
+
+#include <Arduino.h>
+#include <MeMegaPi.h>
+#include "MeEEPROM.h"
+#include <Wire.h>
+#include <SoftwareSerial.h>
+
+MeLineFollower lineLeft(PORT_8);
+MeLineFollower lineRight(PORT_6);
+MeEncoderOnBoard Encoder_1(SLOT1);
+MeEncoderOnBoard Encoder_2(SLOT2);
+
+uint8_t turnFlag = 0;
+bool lineArr[4];
+
+int moveSpeed = 200;
+int stopSpeed = 0;
+
+void forward() {
+  Encoder_1.setMotorPwm(moveSpeed);
+  Encoder_2.setMotorPwm(-moveSpeed);
+}
+
+void turnLeft() {
+  Encoder_1.setMotorPwm(moveSpeed);
+  Encoder_2.setMotorPwm(-moveSpeed / 4);
+}
+
+void turnRight() {
+  Encoder_1.setMotorPwm(moveSpeed / 4);
+  Encoder_2.setMotorPwm(-moveSpeed);
+}
+
+void stopCar(){
+  Encoder_1.setMotorPwm(stopSpeed);
+  Encoder_2.setMotorPwm(-stopSpeed);
+}
+
+void getSensorVal() {
+  lineArr[0] = lineLeft.readSensor1();
+  lineArr[1] = lineLeft.readSensor2();
+  lineArr[2] = lineRight.readSensor1();
+  lineArr[3] = lineRight.readSensor2();
+}
+
+void ultimateP(){
+  Encoder_1.setMotorPwm(-moveSpeed);
+  Encoder_2.setMotorPwm(-moveSpeed);
+}
+
+void printSensorVal() {
+  for(int i=0;i<4;i++)
+    Serial.print(lineArr[i]);
+   Serial.print(" ");
+   Serial.print(turnFlag);
+   Serial.println(" ");
+}
+
+void checkStraight(){
+  if(lineArr[0]==1&&lineArr[1]==0&&lineArr[2]==0&&lineArr[3]==1)
+    turnFlag=0;
+}
+
+void checkTurnLeft(){
+  if(lineArr[0] != 0) //If the leftmost one isn't black
+    return;
+  
+  for(int j=0;j<3;j++){
+    for(int i=3;i>j;i--){ //If the following sensor isn't black
+     if(lineArr[i] != 0)
+       turnFlag = 1;
+     else
+       return;
+   }
+  }
+}
+
+void checkTurnRight(){
+  if(lineArr[0] == 0) //If the leftmost one is black
+    return;
+    
+  for(int j=0;j<3;j++){
+    for(int i=3;i>j;i--){ //If the following sensor isn't black
+     if(lineArr[i] == 0)
+       turnFlag = 2;
+     else
+       return;
+   }
+  }
+}
+
+void checkOut(){
+  if(lineArr[0]==1&&lineArr[1]==1&&lineArr[2]==1&&lineArr[3]==1)
+    turnFlag=3;
+}
+
+void checkCross(){
+  if(lineArr[0]==0&&lineArr[1]==0&&lineArr[2]==0&&lineArr[3]==0)
+    turnFlag=4;
+}
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  getSensorVal(); //Get the sensors value
+  printSensorVal(); 
+  checkStraight();  //Check if it should go straight
+  checkTurnLeft();
+  checkTurnRight();
+  checkOut();
+  checkCross();
+
+  switch(turnFlag){
+    case 0:
+      forward();
+      break;
+    case 1:
+      turnLeft();
+      break;
+    case 2:
+      turnRight();
+      break;
+    case 3:
+      ultimateP();
+      break;  
+    case 4:
+      stopCar();
+      break; 
+  }
+    
+}
+
+
+
+
+
